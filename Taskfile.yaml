@@ -121,6 +121,7 @@ tasks:
         echo "admin"
         kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo 
         export ARGO_ADMIN_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+        echo 'ArgoCD app: https://127.0.0.1:30604' | tee -a ./argocd_credentials.txt 
         echo 'username: admin' | tee -a ./argocd_credentials.txt
         echo 'password: '$ARGO_ADMIN_PASSWORD | tee -a ./argocd_credentials.txt
 
