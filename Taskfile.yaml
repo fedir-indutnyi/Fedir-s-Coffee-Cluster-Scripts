@@ -16,8 +16,8 @@ tasks:
     cmds:
       - |
         # cd ~
-        echo "======== Updating OS =================="
-        sudo apt update
+        echo "======== Updating OS (if needed) =================="
+        # sudo apt update
         export LINUX_USERNAME=$LINUX_USERNAME
         echo "======== Installing SSH Server on port 22 =================="
         sudo apt install openssh-server
