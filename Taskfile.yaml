@@ -112,7 +112,9 @@ tasks:
         kubectl get all -n argocd
         echo "... waiting for all pods go online: "
         until kubectl wait --for condition=available --timeout=600s --all deployments -n argocd; do \
-          sleep 1; \
+          sleep 10; \
+          kubectl get all -n argocd
+          echo "... waiting for all pods go online: "
         done        
         kubectl get svc -n argocd
         kubectl patch service/argocd-server -n argocd --patch '{"spec": {"type": "NodePort", "ports": [{"name": "http", "port": 80, "nodePort": 30604, "targetPort": 8080}]}}'
