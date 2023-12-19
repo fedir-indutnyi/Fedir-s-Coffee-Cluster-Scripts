@@ -43,6 +43,8 @@ tasks:
         echo "$LINUX_USERNAME ALL=(ALL) NOPASSWD: ALL" | sudo tee -a /etc/sudoers
         export IP=$LOCALHOST_IP
         export KUBE_EDITOR="nano"
+        echo "======== Install helm =================="
+        sudo snap install helm --classic
         echo "======== Prerequisites were installed successfully! =================="
   k3s-install-localhost-cluster-and-run:
     desc: 'Install Local Cluster and Start it (k3s, kubectl,)'
@@ -80,6 +82,8 @@ tasks:
         done
         kubectl get node -o wide
         kubectl get pods -A
+        echo "======== K3s version =================="
+        k3s --v
         echo "======== Cluster Successfully installed =================="
  
   k3s-install-argocd:
@@ -169,6 +173,15 @@ tasks:
         # this line needs to be checked if we can remove it?:
         # kubectl get secret $(kubectl get ServiceAccount admin-user -n kubernetes-dashboard -o jsonpath="{.secrets[0].name}") -o jsonpath="{.data.token}" | base64 --decode
 
+  k3s-install-k9s:
+    desc: 'Installing K9s'
+    cmds: 
+      - |
+        cd ~
+        echo "======== Installing k9s =================="
+         # Via LinuxBrew
+        brew install derailed/k9s/k9s
+        echo "======== Installing k9s Completed =================="       
   k3s-restart-cluster:
     desc: 'Restart Cluster'
     cmds: 
