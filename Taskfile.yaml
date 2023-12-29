@@ -1,7 +1,13 @@
 version: '3'
 
 env:
+  #config for WSL
+  #LINUX_USERNAME: 'inf1wz'
+  #NODE_NAME: 'wz-c-002jk'
+  #LOCALHOST_IP: '127.0.0.1'
+  #config for QEMU
   LINUX_USERNAME: 'osboxes'
+  NODE_NAME: 'osboxes'
   LOCALHOST_IP: '127.0.0.1'
 
 silent: false
@@ -77,7 +83,7 @@ tasks:
         echo "======== Trying to get cluster =================="
         kubectl get node -o wide
         echo "======== Waiting for the node to boot ...  =================="
-        until kubectl wait --for condition=ready --timeout=600s node $LINUX_USERNAME; do \
+        until kubectl wait --for condition=ready --timeout=600s node $NODE_NAME; do \
           sleep 1; \
         done
         kubectl get node -o wide
@@ -85,6 +91,8 @@ tasks:
         echo "======== K3s version =================="
         k3s --v
         echo "======== Cluster Successfully installed =================="
+        echo "======== For WSL Reboot is needed for Kubectl and variables to take effect =================="
+        echo "to access wsl under windows use : wsl hostname -I "
  
   k3s-install-argocd:
     desc: 'install argocd'
