@@ -5,10 +5,14 @@ env:
   #LINUX_USERNAME: 'inf1wz'
   #NODE_NAME: 'wz-c-002jk'
   #LOCALHOST_IP: '127.0.0.1'
-  #config for QEMU
+  #config for WSL
   LINUX_USERNAME: 'osboxes'
-  NODE_NAME: 'osboxes'
+  NODE_NAME: 'desktop-u029pp4'
   LOCALHOST_IP: '127.0.0.1'
+  #config for QEMU
+  # LINUX_USERNAME: 'osboxes'
+  # NODE_NAME: 'osboxes'
+  # LOCALHOST_IP: '127.0.0.1'
 
 silent: false
 
@@ -30,7 +34,7 @@ tasks:
         sudo service ssh start
         sudo service ssh status
         echo "======== Downloading k3sup script =================="
-        curl -sLS --insecure https://get.k3sup.dev | sh
+        curl -sLS --insecure https://get.k3sup.dev |  K3S_KUBECONFIG_MODE="644" sh -s - --write-kubeconfig-mode 644
         echo "======== Checking if k3sup script downloaded successfully =================="
         chmod +x k3sup
         cp ./k3sup ~/k3sup
@@ -42,6 +46,7 @@ tasks:
         # But this will  work because it doesn't ask prompt
         # simplified without removal of existing keys:
         # sudo -u $LINUX_USERNAME ssh-keygen -t rsa -N '' <<<''
+        echo "======== Install certificate (please type yes and hit ENTER) =================="
         # improved with removal of existing keys:
         yes | sudo -u $LINUX_USERNAME sh -c 'rm -f ~/.ssh/id_rsa; ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa' <<<''
         echo "yes" | ssh-copy-id $LINUX_USERNAME@$LOCALHOST_IP
@@ -49,7 +54,7 @@ tasks:
         echo "$LINUX_USERNAME ALL=(ALL) NOPASSWD: ALL" | sudo tee -a /etc/sudoers
         export IP=$LOCALHOST_IP
         export KUBE_EDITOR="nano"
-        echo "======== Install helm =================="
+        echo "======== Install helm (please wait) =================="
         sudo snap install helm --classic
         echo "======== Prerequisites were installed successfully! =================="
   k3s-install-localhost-cluster-and-run:
@@ -58,11 +63,11 @@ tasks:
       - |
         cd ~
         echo "======== Starting k3s installation .. =================="
-        export IP=$LOCALHOST_IP
+        export LOCALHOST_IP=$LOCALHOST_IP
         export LINUX_USERNAME=$LINUX_USERNAME
         export KUBE_EDITOR="nano"
         [ -e kubeconfig ] && rm kubeconfig
-        bash -c '~/k3sup install --ip $IP --user $LINUX_USERNAME --local'
+        bash -c '~/k3sup install --ip $LOCALHOST_IP --user $LINUX_USERNAME --local'
         sudo chmod +rwx /etc/rancher/k3s/k3s.yaml
         echo "======== Installation of k3s finished =================="
         export KUBECONFIG=/home/$LINUX_USERNAME/kubeconfig
@@ -88,8 +93,25 @@ tasks:
         done
         kubectl get node -o wide
         kubectl get pods -A
+        
+        echo "========Setting final options to prevent permission denied ...  =================="
+        #this option is useless :(
+        sudo chmod +rwx /etc/rancher/k3s/k3s.yaml
+        export KUBECONFIG=/home/$LINUX_USERNAME/kubeconfig
+        kubectl config use-context default
+        sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+        sudo chown -R $USER:$USER /home/$USER
+
         echo "======== K3s version =================="
         k3s --v
+
+        echo "======== Installing k9s =================="
+        # Via LinuxBrew
+        brew install derailed/k9s/k9s
+        # optional :
+        # curl -sS https://webinstall.dev/k9s | bash
+        echo "======== Installing k9s Completed =================="      
+
         echo "======== Cluster Successfully installed =================="
         echo "======== For WSL Reboot is needed for Kubectl and variables to take effect =================="
         echo "to access wsl under windows use : wsl hostname -I "

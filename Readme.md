@@ -6,7 +6,9 @@ Steps to enable:
 echo 'Install Brew - to be able to install Task'
 cd ~
 sudo apt update
+sudo apt upgrade
 sudo apt-get install build-essential
+sudo apt install mc
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> /home/$USER/.bashrc
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
@@ -15,6 +17,12 @@ echo 'Install Taskfile utility: (similar like ansible)'
 brew install go-task
 task --version
 ```
+
+
+for every restart :
+sudo chmod +rwx /etc/rancher/k3s/k3s.yaml
+
+
 3. Install prerequisites:
 
 ``` sh
@@ -38,6 +46,13 @@ task k3s-install-argocd
 task k3s-install-dashboard
 kubectl -n kubernetes-dashboard create token admin-user
 ```
+
+6. To delete cluster:
+
+``` sh
+task k3s-delete-cluster
+```
+
 
 To access dashboard:
 https://127.0.0.1:31191
