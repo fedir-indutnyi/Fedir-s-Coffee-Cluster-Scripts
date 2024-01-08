@@ -6,13 +6,13 @@ env:
   #NODE_NAME: 'wz-c-002jk'
   #LOCALHOST_IP: '127.0.0.1'
   #config for WSL
-  LINUX_USERNAME: 'osboxes'
-  NODE_NAME: 'desktop-u029pp4'
-  LOCALHOST_IP: '127.0.0.1'
-  #config for QEMU
   # LINUX_USERNAME: 'osboxes'
-  # NODE_NAME: 'osboxes'
+  # NODE_NAME: 'desktop-u029pp4'
   # LOCALHOST_IP: '127.0.0.1'
+  #config for QEMU
+  LINUX_USERNAME: 'osboxes'
+  NODE_NAME: 'localhost'
+  LOCALHOST_IP: '127.0.0.1'
 
 silent: false
 
@@ -94,22 +94,17 @@ tasks:
         kubectl get node -o wide
         kubectl get pods -A
         
-        echo "========Setting final options to prevent permission denied ...  =================="
-        #this option is useless :(
-        sudo chmod +rwx /etc/rancher/k3s/k3s.yaml
-        export KUBECONFIG=/home/$LINUX_USERNAME/kubeconfig
-        kubectl config use-context default
-        sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-        sudo chown -R $USER:$USER /home/$USER
+        # echo "========Setting final options to prevent permission denied ...  =================="
+        # #this option is useless :(
+        # sudo chmod +rwx /etc/rancher/k3s/k3s.yaml
+        # export KUBECONFIG=/home/$LINUX_USERNAME/kubeconfig
+        # kubectl config use-context default
+        # sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+        # sudo chown -R $USER:$USER /home/$USER
 
         echo "======== K3s version =================="
         k3s --v
 
-        echo "======== Installing k9s =================="
-        # Via LinuxBrew
-        brew install derailed/k9s/k9s
-        # optional :
-        # curl -sS https://webinstall.dev/k9s | bash
         echo "======== Installing k9s Completed =================="      
 
         echo "======== Cluster Successfully installed =================="

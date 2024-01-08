@@ -3,12 +3,16 @@ Steps to enable:
 1. Having a Virtual Machine (WSL, Qemu, Linode, AWS, Bare Metal, etc).
 2. Install Taskfile application, using following commands:
 ``` sh
-echo 'Install Brew - to be able to install Task'
 cd ~
 sudo apt update
-sudo apt upgrade
+echo sudo apt upgrade
+sudo apt  install curl
+sudo apt install nano
+echo 'Install Brew - to be able to install Task'
 sudo apt-get install build-essential
 sudo apt install mc
+echo 'Install git:'
+sudo apt install git -y
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> /home/$USER/.bashrc
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
