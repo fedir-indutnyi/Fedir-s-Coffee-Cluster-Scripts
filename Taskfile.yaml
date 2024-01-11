@@ -11,7 +11,7 @@ env:
   # LOCALHOST_IP: '127.0.0.1'
   #config for QEMU
   LINUX_USERNAME: 'osboxes'
-  NODE_NAME: 'osboxes'
+  NODE_NAME: 'localhost'
   LOCALHOST_IP: '127.0.0.1'
 
 silent: false
