@@ -50,7 +50,7 @@ tasks:
         # sudo -u $LINUX_USERNAME ssh-keygen -t rsa -N '' <<<''
         echo "======== Install certificate (please type yes and hit ENTER) =================="
         # improved with removal of existing keys:
-        yes | sudo -u $LINUX_USERNAME sh -c 'rm -f ~/.ssh/id_rsa; ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa' <<<''
+        yes | sudo -u $LINUX_USERNAME sh -c 'rm -f ~/.ssh/id_rsa; ssh-keygen -t rsa -N "" -q -f ~/.ssh/id_rsa' <<<''
         echo "yes" | ssh-copy-id $LINUX_USERNAME@$LOCALHOST_IP
         echo "======== Allow no password behavior =================="
         echo "$LINUX_USERNAME ALL=(ALL) NOPASSWD: ALL" | sudo tee -a /etc/sudoers
@@ -66,13 +66,18 @@ tasks:
         cd ~
         echo "======== Starting k3s installation .. =================="
         export LOCALHOST_IP=$LOCALHOST_IP
+        export SERVER_IP=$LOCALHOST_IP
         export LINUX_USERNAME=$LINUX_USERNAME
         export KUBE_EDITOR="nano"
         [ -e kubeconfig ] && rm kubeconfig
+        
         echo "======== Installing k3s without LB & Traefik =================="
-        bash -c '~/k3sup install --ip $LOCALHOST_IP --user $LINUX_USERNAME --local --no-extras'
+        # bash -c '~/k3sup install --ip $LOCALHOST_IP --user $LINUX_USERNAME --local --no-extras'
+        echo "======== Installing k3s without Traefik =================="
+        bash -c '~/k3sup install --ip $LOCALHOST_IP --user $LINUX_USERNAME  --no-extras'
         sudo chmod +rwx /etc/rancher/k3s/k3s.yaml
         echo "======== Installation of k3s finished =================="
+        
         export KUBECONFIG=/home/$LINUX_USERNAME/kubeconfig
         echo "... make kubeconfig path permanent and kubeditor=nano"
         echo 'KUBECONFIG="/home/{{.LINUX_USERNAME}}/kubeconfig"' | sudo tee -a /etc/environment
