@@ -25,7 +25,7 @@ echo "======== Installing required packages and SSH Server on port 22 ==========
 # sudo apt install nano
 # sudo apt install curl
 sudo apt-get update && \
-sudo apt-get install -y curl ca-certificates tar gzip nano && \
+sudo apt-get install -y curl ca-certificates tar gzip nano iptables ip6tables && \
 sudo rm -rf /var/lib/apt/lists/*
 # Install SSH Server
 sudo apt-get update && \
@@ -47,7 +47,7 @@ export LINUX_USERNAME=$LINUX_USERNAME
 # improved with removal of existing keys:
 echo 'yes\n'  | sudo -u $LINUX_USERNAME sh -c 'rm -f ~/.ssh/id_rsa; ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa' <<<''
 echo -e 'yes\n' | ssh-copy-id $LINUX_USERNAME@$LOCALHOST_IP
-echo "======== Listing certificates =================="
+echo "======== Listing Keys =================="
 ls -l ~/.ssh/id*
 
 echo "======== Install helm (please wait) =================="
