@@ -1,0 +1,6 @@
+
+localhost-dev-scripts/kubernetes-dev-clusters/argocd-installation
+!localhost-dev-scripts/kubernetes-dev-clusters/argocd-installation/file_placeholder
+!localhost-dev-scripts/kubernetes-dev-clusters/argocd-installation/crds/file_placeholder
+localhost-dev-scripts/kubernetes-dev-clusters/kubeconfig
+localhost-dev-scripts/kubernetes-dev-clusters/argocd_credentials.txt

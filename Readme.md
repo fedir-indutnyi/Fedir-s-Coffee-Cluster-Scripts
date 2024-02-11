@@ -26,22 +26,29 @@ ssh -L 31191:127.0.0.1:31191 -L 30604:127.0.0.1:30604   -L 8001:127.0.0.1:8001  
 
 
 
-Running Scripts:
+Fedir's Coffee Cluster Scripts:
 ``` sh
 
-Install Prerequisites
-cp install-prerequisites-ubuntu22.sh /tmp/install-prerequisites-ubuntu22.sh && \
-chmod +x /tmp/install-prerequisites-ubuntu22.sh && \
-/bin/bash -c "/tmp/install-prerequisites-ubuntu22.sh"
+# Install Prerequisites
+chmod +x install-prerequisites-ubuntu22.sh && sh ./install-prerequisites-ubuntu22.sh
+# cp install-prerequisites-ubuntu22.sh /tmp/install-prerequisites-ubuntu22.sh && \
+# chmod +x /tmp/install-prerequisites-ubuntu22.sh && \
+# /bin/bash -c "/tmp/install-prerequisites-ubuntu22.sh"
 
-Install AutoK3s Native (doesnt work - dont use it as it is not ready - debugging needed)
+# Install AutoK3s Native-Baremetal (doesnt work - dont use it as it is not ready - debugging needed)
 cp k3s-native-autok3s-ubuntu22.sh /tmp/k3s-native-autok3s-ubuntu22.sh && \
 chmod +x /tmp/k3s-native-autok3s-ubuntu22.sh && \
 /bin/bash -c "/tmp/k3s-native-autok3s-ubuntu22.sh"
 
-Install K3Sup Native 
+# Install K3Sup Native-Baremetal
 cp k3s-native-k3sup-ubuntu22.sh /tmp/k3s-native-k3sup-ubuntu22.sh && \
 chmod +x /tmp/k3s-native-k3sup-ubuntu22.sh && \
 /bin/bash -c "/tmp/k3s-native-k3sup-ubuntu22.sh"
+
+# Every time after reboot:
+KUBECONFIG=/home/$USER/kubeconfig
+
+# Install ArgoCD 
+chmod +x argocd-install.sh && sh ./argocd-install.sh
 
 ``` 
