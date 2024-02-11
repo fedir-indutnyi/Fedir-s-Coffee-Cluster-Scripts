@@ -13,7 +13,7 @@ export LOCALHOST_IP="127.0.0.1"
 echo "======== Check Environment Variables =================="
 env
 
-# cd ~
+cd ~
 echo "======== Updating OS (if needed) =================="
 # sudo apt update
 # Install required packages
@@ -24,16 +24,16 @@ echo "======== Installing required packages and SSH Server on port 22 ==========
 # sudo service ssh status
 # sudo apt install nano
 # sudo apt install curl
-apt-get update && \
-apt-get install -y curl ca-certificates tar gzip nano && \
-rm -rf /var/lib/apt/lists/*
+sudo apt-get update && \
+sudo apt-get install -y curl ca-certificates tar gzip nano && \
+sudo rm -rf /var/lib/apt/lists/*
 # Install SSH Server
-apt-get update && \
-apt-get install -y openssh-client openssh-server && \
-dpkg-reconfigure openssh-server
+sudo apt-get update && \
+sudo apt-get install -y openssh-client openssh-server && \
+sudo dpkg-reconfigure openssh-server
 
 # Start SSH service
-service ssh start && sleep 5 && service ssh status
+sudo service ssh start && sleep 5 && service ssh status
 
 
 echo "======== Allow no password behavior =================="
@@ -42,10 +42,10 @@ export IP=$LOCALHOST_IP
 export KUBE_EDITOR="nano"
 
 echo "======== Generating local keys & certificate =================="
-chmod 700 ~/.ssh
+sudo chmod 700 ~/.ssh
+export LINUX_USERNAME=$LINUX_USERNAME
 # improved with removal of existing keys:
-# -q means quit 
-echo -e 'yes\n' | sudo -u $LINUX_USERNAME sh -c 'rm -f ~/.ssh/id_rsa; ssh-keygen -t rsa -N -q "" -f ~/.ssh/id_rsa' 
+echo 'yes\n'  | sudo -u $LINUX_USERNAME sh -c 'rm -f ~/.ssh/id_rsa; ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa' <<<''
 echo -e 'yes\n' | ssh-copy-id $LINUX_USERNAME@$LOCALHOST_IP
 echo "======== Listing certificates =================="
 ls -l ~/.ssh/id*
