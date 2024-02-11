@@ -1,0 +1,17 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: my-ingressroute
+  namespace: my-namespace
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`traefik.localhost`)
+      kind: Rule
+      services:
+        - name: traefik-dashboard
+          port: 9000  # Internal service port
+  ports:
+    - name: http-alt
+      port: 8080  # External port to expose externally
