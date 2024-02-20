@@ -15,6 +15,9 @@ echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] 
 # Update the system again
 sudo apt update
 
+# Make sure you are about to install from the Docker repo instead of the default Ubuntu repo
+apt-cache policy docker-ce
+
 # Install Docker
 sudo apt install -y docker-ce docker-ce-cli containerd.io
 
@@ -28,3 +31,7 @@ sudo chmod +x /usr/local/bin/docker-compose
 # Verify the installation
 docker --version
 docker-compose --version
+
+
+# sudo reboot
+sudo reboot
