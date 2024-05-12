@@ -40,7 +40,7 @@ echo "======== Generating local keys & certificate =================="
 sudo chmod 700 ~/.ssh
 export LINUX_USERNAME=$LINUX_USERNAME
 # improved with removal of existing keys:
-echo 'yes\n'  | sudo -u $LINUX_USERNAME sh -c 'rm -f ~/.ssh/id_rsa; ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa' <<<''
+echo 'yes\n' | sudo -u $LINUX_USERNAME sh -c 'rm -f ~/.ssh/id_rsa; ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa'
 echo -e 'yes\n' | ssh-copy-id $LINUX_USERNAME@$LOCALHOST_IP
 echo "======== Listing Keys =================="
 ls -l ~/.ssh/id*
