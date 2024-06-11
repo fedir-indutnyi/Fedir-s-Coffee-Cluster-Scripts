@@ -27,6 +27,9 @@ ssh -L 31191:127.0.0.1:31191 -L 30604:127.0.0.1:30604   -L 8001:127.0.0.1:8001  
 
 
 Fedir's Coffee Cluster Scripts:
+
+!!!!!!!!!!!! Dont forget line endings LF
+
 ``` sh
 
 # Install Prerequisites
@@ -41,9 +44,7 @@ chmod +x /tmp/k3s-native-autok3s-ubuntu22.sh && \
 /bin/bash -c "/tmp/k3s-native-autok3s-ubuntu22.sh"
 
 # Install K3Sup Native-Baremetal
-cp k3s-native-k3sup-ubuntu22.sh /tmp/k3s-native-k3sup-ubuntu22.sh && \
-chmod +x /tmp/k3s-native-k3sup-ubuntu22.sh && \
-/bin/bash -c "/tmp/k3s-native-k3sup-ubuntu22.sh"
+chmod +x k3s-native-k3sup-ubuntu22.sh && sh ./k3s-native-k3sup-ubuntu22.sh
 
 # Every time after reboot:
 KUBECONFIG=/home/$USER/kubeconfig

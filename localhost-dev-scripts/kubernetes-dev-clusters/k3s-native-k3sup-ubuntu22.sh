@@ -1,5 +1,5 @@
 #!/bin/bash
-
+echo "!!! Important - make sure ending of this file is LF !!!"
 echo "======== Starting to install Localhost Development K3s Prerequisites =================="
 # Define environment variables
 export LINUX_USERNAME=$USER
@@ -18,38 +18,47 @@ env
         export SERVER_IP=$LOCALHOST_IP
         export LINUX_USERNAME=$LINUX_USERNAME
         export KUBE_EDITOR="nano"
-        [ -e kubeconfig ] && rm kubeconfig
+
+
+
+        # [ -e kubeconfig ] && rm kubeconfig
         
-        echo "======== Downloading k3sup script =================="
+        # echo "======== Downloading k3sup script =================="
+        # # curl -sLS https://get.k3sup.dev | sh
+        # curl -sLS --insecure https://get.k3sup.dev |  K3S_KUBECONFIG_MODE="644" sh -s - --write-kubeconfig-mode 644
+
+        # echo "======== Checking if k3sup script downloaded successfully =================="
+        # chmod +x k3sup
+        # cp ./k3sup ~/k3sup
+        # chmod +x ~/k3sup
+
+        # Add k3sup to PATH
+        export PATH=$PATH:$HOME/.k3sup/bin
+
+        echo "======== Installing k3s =================="
+        
         curl -sLS --insecure https://get.k3sup.dev |  K3S_KUBECONFIG_MODE="644" sh -s - --write-kubeconfig-mode 644
+        sudo cp k3sup /usr/local/bin/k3sup
+        k3sup --help
+        k3sup install --local --ip $LOCALHOST_IP --user $LINUX_USERNAME
 
-        echo "======== Checking if k3sup script downloaded successfully =================="
-        chmod +x k3sup
-        cp ./k3sup ~/k3sup
-        chmod +x ~/k3sup
-
-# Add k3sup to PATH
-export PATH=$PATH:$HOME/.k3sup/bin
-
-~/k3sup --help
-echo "======== K3Sup installed and ready =================="
-
-        echo "======== Installing k3s without LB & Traefik =================="
-        # bash -c '~/k3sup install --ip $LOCALHOST_IP --user $LINUX_USERNAME --local --no-extras'
-        echo "======== Installing k3s without Traefik =================="
-        bash -c '~/k3sup install --ip $LOCALHOST_IP --user $LINUX_USERNAME --local --no-extras'
+                
+        # # sudo install k3sup /usr/local/bin/
+        # bash -c '~/k3sup install --ip $LOCALHOST_IP --user $LINUX_USERNAME --local'
+        
         sudo chmod +rwx /etc/rancher/k3s/k3s.yaml
         echo "======== Installation of k3s finished =================="
         
         export KUBECONFIG=/home/$LINUX_USERNAME/kubeconfig
-        echo "... make kubeconfig path permanent and kubeditor=nano"
-        echo 'KUBECONFIG="/home/{{.LINUX_USERNAME}}/kubeconfig"' | sudo tee -a /etc/environment
+        echo "KUBECONFIG=\"/home/$LINUX_USERNAME/kubeconfig\"" | sudo tee -a /etc/environment
         export KUBE_EDITOR="nano"
         echo 'KUBE_EDITOR="nano"' | sudo tee -a /etc/environment
         echo "... listing updated environment variables: "
         sudo cat /etc/environment
         export KUBECONFIG=/home/$LINUX_USERNAME/kubeconfig
         kubectl config use-context default
+        kubectl get node -o wide
+        
         # restart k3s:
         echo "======== Restarting Cluster =================="
         /usr/local/bin/k3s-killall.sh
@@ -58,6 +67,7 @@ echo "======== K3Sup installed and ready =================="
         sudo chmod +rwx /etc/rancher/k3s/k3s.yaml
         echo "======== Trying to get cluster =================="
         kubectl get node -o wide
+
         echo "======== Waiting for the node to boot ...  =================="
         until kubectl wait --for condition=ready --timeout=600s node $NODE_NAME; do \
           sleep 1; \
@@ -75,8 +85,6 @@ echo "======== K3Sup installed and ready =================="
 
         echo "======== K3s version =================="
         k3s --v
-
-        echo "======== Installing k9s Completed =================="      
 
         echo "======== Cluster Successfully installed =================="
         echo "======== For WSL Reboot is needed for Kubectl and variables to take effect =================="
