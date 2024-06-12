@@ -1,6 +1,5 @@
 #!/bin/bash
 echo "======== Install brew (needed for k9s) (please wait) =================="
-echo 'Install Brew - to be able to install Task'
 cd ~
 # sudo apt update
 # sudo apt upgrade
