@@ -13,6 +13,25 @@ export LOCALHOST_IP="127.0.0.1"
 echo "======== Check Environment Variables =================="
 env
 
+
+Prepare environment - these cations are not mandatory, but can be helpful:
+``` sh
+cd ~
+sudo apt update
+echo sudo apt upgrade
+sudo apt install curl
+sudo apt install nano
+echo 'Install Brew - to be able to install Task'
+sudo apt-get install build-essential
+sudo apt install mc
+echo 'Install git:'
+sudo apt install git -y
+```
+
+
+
+
+
 cd ~
 echo "======== Updating OS (if needed) =================="
 # sudo apt update
