@@ -24,4 +24,4 @@ KUBECONFIG=/home/$USER/kubeconfig
 # Install ArgoCD 
 chmod +x argocd-install.sh && sh ./argocd-install.sh
 
-``` 
+```
