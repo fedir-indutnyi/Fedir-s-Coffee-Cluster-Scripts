@@ -1,4 +1,5 @@
 #!/bin/bash
+# !!!! Need to be run as "sh k3s-native-k3sup.sh" !!!!
 echo "!!! Important - make sure ending of this file is LF !!!"
 echo "======== Starting to install Localhost Development K3s Prerequisites =================="
 # Define environment variables
@@ -35,10 +36,23 @@ env
 
         echo "======== Installing k3s =================="
         
-        curl -sLS --insecure https://get.k3sup.dev |  K3S_KUBECONFIG_MODE="644" sh -s - --write-kubeconfig-mode 644
+        K3SUP_PATH="./k3sup"  # Specify the path where you want to check for the k3sup file
+        # Check if k3sup already exists
+        if [ -f "$K3SUP_PATH" ]; then
+            echo "Using existing k3sup binary."
+            K3SUP_CMD="$K3SUP_PATH"
+        else
+            echo "Downloading k3sup..."
+            curl -sLS --insecure https://get.k3sup.dev -o k3sup
+            chmod +x k3sup
+            K3SUP_CMD="./k3sup"
+        fi
+        # Execute k3sup with the desired options
+        K3S_KUBECONFIG_MODE="644" $K3SUP_CMD --write-kubeconfig-mode 644
+
         sudo cp k3sup /usr/local/bin/k3sup
         k3sup --help
-        k3sup install --local --ip $LOCALHOST_IP --user $USER
+        k3sup install --local --ip $LOCALHOST_IP --user $USER --k3s-extra-args '--no-deploy traefik'
 
                 
         # # sudo install k3sup /usr/local/bin/
