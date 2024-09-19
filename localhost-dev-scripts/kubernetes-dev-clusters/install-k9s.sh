@@ -19,3 +19,7 @@ echo "======== Prerequisites were installed successfully! =================="
 
 
 
+New:
+curl -sS https://webinstall.dev/k9s | bash
+source ~/.config/envman/PATH.env
+
