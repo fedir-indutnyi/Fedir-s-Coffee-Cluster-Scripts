@@ -7,15 +7,12 @@ echo "======== Starting to install ArgoCD using Kubectl =================="
 export NODE_NAME="localhost"
 export LOCALHOST_IP="127.0.0.1"
 
-echo "======== Check Environment Variables =================="
-env
-   
-        echo "======== Installing ArgoCD =================="
-
       snap install helm --classic
       helm repo add argo https://argoproj.github.io/argo-helm
       helm repo update
       kubectl get namespace | grep -q "argocd" || kubectl create namespace argocd
+
+echo "======== Installing ArgoCD =================="
 
       helm upgrade --install --debug  --atomic --timeout 600s argocd argo/argo-cd \
       --set server.service.type="NodePort" \
