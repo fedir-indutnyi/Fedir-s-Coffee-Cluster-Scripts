@@ -10,7 +10,7 @@ export KUBE_EXPLORER_VERSION="v0.4.0"
 export HELM_DASHBOARD_VERSION="1.3.3"
 # Define environment variables
 export LINUX_USERNAME=$USER
-export LINUX_PASSWORD="osboxes.org"
+export LINUX_PASSWORD="ubuntu"
 export NODE_NAME="localhost"
 export LOCALHOST_IP="127.0.0.1"
 
@@ -20,7 +20,6 @@ cd ~
 
 # Install autok3s
 curl -sS https://rancher-mirror.rancher.cn/autok3s/install.sh | sudo sh
-# curl -sfL https://get.autok3s.io | sh
 
 # Start autok3s daemon
 sudo autok3s --help
@@ -79,3 +78,73 @@ sudo autok3s kubectl get pods -A
 
 echo "======== Cluster booted Successfully =================="
 echo "For web autok3 panel run: sudo autok3s serve "
+
+
+
+Steps to Set Up and Start the Service
+Create the Service File:
+
+Create and edit the file with the correct path:
+
+sh
+Copy code
+sudo nano /etc/systemd/system/autok3s.service
+Paste the contents with the correct ExecStart path:
+
+ini
+Copy code
+[Unit]
+Description=AutoK3s Service
+After=network.target
+
+[Service]
+User=ubuntu
+ExecStart=/usr/local/bin/autok3s serve
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+Save and exit the editor (e.g., Ctrl+O, Enter, Ctrl+X in nano).
+
+Reload Systemd to Recognize the New Service:
+
+sh
+Copy code
+sudo systemctl daemon-reload
+Enable and Start the Service:
+
+Enable the service to start on boot:
+
+sh
+Copy code
+sudo systemctl enable autok3s
+Start the service immediately:
+
+sh
+Copy code
+sudo systemctl start autok3s
+Check the Status of the Service:
+
+You can check the status of the autok3s service to ensure it’s running correctly:
+
+sh
+Copy code
+sudo systemctl status autok3s
+Check Logs:
+
+If there are issues, you can check the logs for more details:
+
+sh
+Copy code
+sudo journalctl -u autok3s
+By following these steps, you can ensure that the autok3s service is set up to start automatically on boot and is using the correct executable path.
+
+
+
+ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N ""
+cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+autok3s   create --provider  native --docker-script  https://get.docker.com --k3s-channel  stable --k3s-install-script  https://get.k3s.io --name  localhost --rollback --ssh-key-path  ~/.ssh/id_rsa --ssh-port  22 --ssh-user  ubuntu --master-ips  127.0.0.1
+# autok3s delete --provider native --name localhost
+# autok3s serve
