@@ -16,10 +16,24 @@ echo "You may want to run: sudo apt update && sudo apt upgrade -y"
 
 echo "======== Starting to install Localhost Development K3s Prerequisites =================="
 
-# --- Detect OS ---
-if ! grep -qi 'ubuntu' /etc/os-release; then
-  echo "[WARN] This script is designed for Ubuntu. Continue? (y/N)"; read -r ans
+# --- Detect OS and set package manager/firewall ---
+if grep -qi 'ubuntu' /etc/os-release; then
+  OS_TYPE="ubuntu"
+  PKG_UPDATE="sudo apt update"
+  PKG_INSTALL="sudo apt install -y"
+  FIREWALL_DISABLE="sudo ufw disable"
+  FIREWALL_PERM_DISABLE="sudo systemctl disable ufw"
+elif grep -qi 'almalinux' /etc/os-release || grep -qi 'centos' /etc/os-release || grep -qi 'rhel' /etc/os-release; then
+  OS_TYPE="rhel"
+  PKG_UPDATE="sudo dnf makecache || sudo yum makecache"
+  PKG_INSTALL="sudo dnf install -y || sudo yum install -y"
+  FIREWALL_DISABLE="sudo systemctl stop firewalld"
+  FIREWALL_PERM_DISABLE="sudo systemctl disable firewalld"
+else
+  echo "[WARN] This script is designed for Ubuntu and AlmaLinux/RHEL. Continue? (y/N)"
+  read -r ans
   [[ $ans =~ ^[Yy]$ ]] || exit 1
+  OS_TYPE="unknown"
 fi
 
 # --- Detect user and host ---
@@ -27,27 +41,55 @@ USER_NAME="$(whoami)"
 HOST_NAME="$(hostname)"
 HOME_DIR="$(eval echo ~$USER_NAME)"
 
+# --- Update and install dependencies ---
+echo "[INFO] Updating package cache..."
+eval "$PKG_UPDATE"
+
+for dep in curl sudo tar; do
+  if ! command -v $dep >/dev/null; then
+    echo "[INFO] Installing missing dependency: $dep"
+    eval "$PKG_INSTALL $dep"
+  fi
+done
+
 # --- Prompt for firewall ---
-echo "[INFO] Ubuntu firewall (ufw) may block k3s traffic on localhost."
-echo "Do you want to disable ufw now? (recommended for local dev) [y/N]"
-read -r DISABLE_UFW
-if [[ $DISABLE_UFW =~ ^[Yy]$ ]]; then
-  if command -v sudo >/dev/null && command -v ufw >/dev/null; then
-    sudo ufw disable || true
+echo "[INFO] Firewall may block k3s traffic on localhost."
+if [ "$OS_TYPE" = "ubuntu" ]; then
+  echo "Do you want to disable ufw now? (recommended for local dev) [y/N]"
+  read -r DISABLE_FW
+  if [[ $DISABLE_FW =~ ^[Yy]$ ]]; then
+    eval "$FIREWALL_DISABLE" || true
     echo "[INFO] ufw disabled."
     echo "Do you want to disable the firewall permanently (across reboots)? [y/N]"
-    read -r DISABLE_UFW_PERM
-    if [[ $DISABLE_UFW_PERM =~ ^[Yy]$ ]]; then
-      sudo systemctl disable ufw
+    read -r DISABLE_FW_PERM
+    if [[ $DISABLE_FW_PERM =~ ^[Yy]$ ]]; then
+      eval "$FIREWALL_PERM_DISABLE"
       echo "[INFO] ufw will not start on boot (permanently disabled)."
     else
       echo "[WARN] ufw is only disabled for this session. It may re-enable after reboot."
     fi
   else
-    echo "[WARN] ufw or sudo not found, skipping."
+    echo "[INFO] Skipping firewall change."
+  fi
+elif [ "$OS_TYPE" = "rhel" ]; then
+  echo "Do you want to disable firewalld now? (recommended for local dev) [y/N]"
+  read -r DISABLE_FW
+  if [[ $DISABLE_FW =~ ^[Yy]$ ]]; then
+    eval "$FIREWALL_DISABLE" || true
+    echo "[INFO] firewalld disabled."
+    echo "Do you want to disable the firewall permanently (across reboots)? [y/N]"
+    read -r DISABLE_FW_PERM
+    if [[ $DISABLE_FW_PERM =~ ^[Yy]$ ]]; then
+      eval "$FIREWALL_PERM_DISABLE"
+      echo "[INFO] firewalld will not start on boot (permanently disabled)."
+    else
+      echo "[WARN] firewalld is only disabled for this session. It may re-enable after reboot."
+    fi
+  else
+    echo "[INFO] Skipping firewall change."
   fi
 else
-  echo "[INFO] Skipping firewall change."
+  echo "[INFO] Skipping firewall change (unknown OS)."
 fi
 
 # --- Prompt for Traefik ---
