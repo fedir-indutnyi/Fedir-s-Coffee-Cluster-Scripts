@@ -13,6 +13,11 @@ echo "!!! Important - make sure ending of this file is LF !!!"
 
 echo "Update OS (recommended before install)"
 echo "You may want to run: sudo apt update && sudo apt upgrade -y"
+echo
+# --- Disclaimer about static IP/hostname ---
+echo "[DISCLAIMER] For best results, set a static IP and hostname for your VM using 'nmtui' or 'nmcli' before running this script."
+echo "You can run 'sudo nmtui' to configure your network and hostname."
+echo
 
 echo "======== Starting to install Localhost Development K3s Prerequisites =================="
 
@@ -45,12 +50,39 @@ HOME_DIR="$(eval echo ~$USER_NAME)"
 echo "[INFO] Updating package cache..."
 eval "$PKG_UPDATE"
 
-for dep in curl sudo tar; do
+for dep in curl sudo tar openssl iptables iproute; do
   if ! command -v $dep >/dev/null; then
     echo "[INFO] Installing missing dependency: $dep"
     eval "$PKG_INSTALL $dep"
   fi
 done
+
+# --- Post-dependency check for networking tools ---
+if ! command -v iptables >/dev/null; then
+  echo "[WARN] iptables is still missing! Cluster networking may not work."
+fi
+if ! command -v ip >/dev/null; then
+  echo "[WARN] iproute (ip) is still missing! Cluster networking may not work."
+fi
+
+# --- Check for existing k3s install ---
+if [ -x /usr/local/bin/k3s ]; then
+  echo "[WARN] k3s is already installed. Do you want to uninstall and reinstall? [y/N]"
+  read -r REINSTALL_K3S
+  if [[ $REINSTALL_K3S =~ ^[Yy]$ ]]; then
+    if [ -x /usr/local/bin/k3s-uninstall.sh ]; then
+      echo "[INFO] Uninstalling existing k3s..."
+      sudo /usr/local/bin/k3s-uninstall.sh
+      sleep 3
+    else
+      echo "[ERROR] k3s-uninstall.sh not found. Please uninstall k3s manually."
+      exit 1
+    fi
+  else
+    echo "[INFO] Exiting without reinstalling k3s."
+    exit 0
+  fi
+fi
 
 # --- Prompt for firewall ---
 echo "[INFO] Firewall may block k3s traffic on localhost."
@@ -92,14 +124,46 @@ else
   echo "[INFO] Skipping firewall change (unknown OS)."
 fi
 
+# --- Prompt for static IP specification ---
+echo "Do you want to specify a static host IP address for k3s? [y/N]"
+read -r SPECIFY_STATIC_IP
+USE_STATIC_IP=false
+if [[ $SPECIFY_STATIC_IP =~ ^[Yy]$ ]]; then
+  USE_STATIC_IP=true
+fi
+
+if $USE_STATIC_IP; then
+  echo "Enter the cluster IP to bind to [default: 127.0.0.1, or your real network IP]:"
+  read -r CLUSTER_IP
+  if [ -z "$CLUSTER_IP" ]; then
+    CLUSTER_IP="127.0.0.1"
+  fi
+fi
+
 # --- Prompt for Traefik ---
 echo "[INFO] By default, k3s installs Traefik ingress."
 echo "Do you want to install Traefik? [y/N]"
 read -r INSTALL_TRAEFIK
-if [[ $INSTALL_TRAEFIK =~ ^[Yy]$ ]]; then
-  K3S_EXTRA_ARGS=""
+echo "[INFO] Installing k3s as a single-node cluster. No agents will be joined."
+
+# --- Build installer args based on static IP choice ---
+K3S_EXTRA_ARGS=""
+# Only declare K3SUP_IP_ARG and K3S_NODE_IP_ARG if static IP is used
+if $USE_STATIC_IP; then
+  if [[ $INSTALL_TRAEFIK =~ ^[Yy]$ ]]; then
+    K3S_EXTRA_ARGS="--k3s-extra-args=--bind-address=$CLUSTER_IP"
+  else
+    K3S_EXTRA_ARGS="--k3s-extra-args=--disable=traefik --bind-address=$CLUSTER_IP"
+  fi
+  K3SUP_IP_ARG="--ip $CLUSTER_IP"
+  K3S_NODE_IP_ARG="export K3S_NODE_IP=\"$CLUSTER_IP\""
 else
-  K3S_EXTRA_ARGS="--k3s-extra-args=--disable=traefik"
+  if [[ ! $INSTALL_TRAEFIK =~ ^[Yy]$ ]]; then
+    K3S_EXTRA_ARGS="--k3s-extra-args=--disable=traefik"
+  else
+    K3S_EXTRA_ARGS=""
+  fi
+  # Do not declare K3SUP_IP_ARG or K3S_NODE_IP_ARG at all
 fi
 
 # --- Check dependencies ---
@@ -132,8 +196,14 @@ echo "[INFO] Using k3sup at $K3SUP_BIN"
 # --- Install k3s with k3sup ---
 echo "======== Running install command =================="
 export K3S_KUBECONFIG_MODE="644"
-echo "[INFO] Installing k3s on localhost (127.0.0.1) as $USER_NAME..."
-$K3SUP_BIN install --local --ip 127.0.0.1 --user "$USER_NAME" $K3S_EXTRA_ARGS
+if $USE_STATIC_IP; then
+  export K3S_NODE_IP="$CLUSTER_IP"
+  echo "[INFO] Installing k3s on localhost ($CLUSTER_IP) as $USER_NAME..."
+  $K3SUP_BIN install --local $K3SUP_IP_ARG --user "$USER_NAME" $K3S_EXTRA_ARGS
+else
+  echo "[INFO] Installing k3s on localhost as $USER_NAME..."
+  $K3SUP_BIN install --local --user "$USER_NAME" $K3S_EXTRA_ARGS
+fi
 
 # --- Check for k3s.yaml ---
 if [ ! -f /etc/rancher/k3s/k3s.yaml ]; then
@@ -196,6 +266,45 @@ k3s --version
 $K3SUP_BIN version
 
 # --- Print version and summary ---
+echo "======== Installed Tool Versions =================="
+if command -v k3s >/dev/null; then
+  echo -n "k3s: "; k3s --version | head -n1
+fi
+if command -v k3sup >/dev/null; then
+  K3SUP_VER=$(k3sup version --short 2>/dev/null | head -n1)
+  if [ -z "$K3SUP_VER" ]; then
+    K3SUP_VER=$(k3sup version 2>/dev/null | grep -m1 Version: | awk '{print $2}')
+  fi
+  echo "k3sup: $K3SUP_VER"
+fi
+if command -v kubectl >/dev/null; then
+  KUBECTL_VER=$(kubectl version --client=true 2>/dev/null | grep -E 'GitVersion|Client Version' | head -n1 | awk -F: '{print $2}' | xargs)
+  if [ -z "$KUBECTL_VER" ]; then
+    KUBECTL_VER=$(kubectl version --client=true 2>/dev/null | head -n1)
+  fi
+  echo "kubectl: $KUBECTL_VER"
+fi
+if command -v helm >/dev/null; then
+  echo -n "helm: "; helm version --short
+fi
+if command -v k9s >/dev/null; then
+  K9S_VER=$(k9s version 2>/dev/null | grep -E '^Version:' | awk '{print $2}')
+  if [ -n "$K9S_VER" ]; then
+    echo "k9s: $K9S_VER"
+  else
+    echo -n "k9s: "; k9s version | head -n1
+  fi
+fi
+if command -v curl >/dev/null; then
+  echo -n "curl: "; curl --version | head -n1
+fi
+if command -v openssl >/dev/null; then
+  echo -n "openssl: "; openssl version
+fi
+if command -v tar >/dev/null; then
+  echo -n "tar: "; tar --version | head -n1
+fi
+
 echo "======== Cluster Successfully installed =================="
 echo "[SUCCESS] k3s cluster installed and bound to 127.0.0.1."
 echo "[INFO] KUBECONFIG is set to $KUBECONFIG_PATH."
