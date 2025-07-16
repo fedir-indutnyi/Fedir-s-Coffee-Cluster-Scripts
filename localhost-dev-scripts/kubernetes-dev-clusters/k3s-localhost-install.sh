@@ -132,6 +132,43 @@ else
   echo "[INFO] Skipping firewall change (unknown OS)."
 fi
 
+# --- Prompt for dummy interface for stable cluster IP ---
+echo "Do you want to create a dummy network interface for a stable cluster IP? [y/N]"
+read -r CREATE_DUMMY_IF
+USE_DUMMY_IF=false
+DUMMY_IF_NAME="dummy0"
+DUMMY_IP="192.168.100.100/32"
+DUMMY_NODE_NAME="k3s-localhost"
+if [[ $CREATE_DUMMY_IF =~ ^[Yy]$ ]]; then
+  USE_DUMMY_IF=true
+  echo "Enter the IP address for the dummy interface [default: $DUMMY_IP]:"
+  read -r USER_DUMMY_IP
+  if [ -n "$USER_DUMMY_IP" ]; then
+    DUMMY_IP="$USER_DUMMY_IP"
+  fi
+  echo "Enter the node name for k3s [default: $DUMMY_NODE_NAME]:"
+  read -r USER_DUMMY_NODE_NAME
+  if [ -n "$USER_DUMMY_NODE_NAME" ]; then
+    DUMMY_NODE_NAME="$USER_DUMMY_NODE_NAME"
+  fi
+  # Check if dummy0 exists
+  if ip link show "$DUMMY_IF_NAME" >/dev/null 2>&1; then
+    echo "[INFO] $DUMMY_IF_NAME already exists. Do you want to recreate it? [y/N]"
+    read -r RECREATE_DUMMY
+    if [[ $RECREATE_DUMMY =~ ^[Yy]$ ]]; then
+      echo "[INFO] Deleting existing $DUMMY_IF_NAME..."
+      nmcli connection delete "$DUMMY_IF_NAME" || true
+      sudo ip link delete "$DUMMY_IF_NAME" || true
+    else
+      echo "[INFO] Keeping existing $DUMMY_IF_NAME."
+    fi
+  fi
+  echo "[INFO] Creating $DUMMY_IF_NAME with IP $DUMMY_IP..."
+  nmcli connection add type dummy ifname "$DUMMY_IF_NAME" con-name "$DUMMY_IF_NAME" ipv4.addresses "$DUMMY_IP" ipv4.method manual ipv6.method ignore
+  nmcli connection up "$DUMMY_IF_NAME"
+  ip addr show "$DUMMY_IF_NAME"
+fi
+
 # --- Prompt for static IP specification ---
 echo "Do you want to specify a static host IP address for k3s? [y/N]"
 read -r SPECIFY_STATIC_IP
@@ -141,7 +178,11 @@ if [[ $SPECIFY_STATIC_IP =~ ^[Yy]$ ]]; then
 fi
 
 INSTALL_K3S_EXEC="server"
-if $USE_STATIC_IP; then
+if $USE_DUMMY_IF; then
+  # Use dummy interface IP and custom node name for k3s
+  DUMMY_IP_ADDR="${DUMMY_IP%%/*}"
+  INSTALL_K3S_EXEC="$INSTALL_K3S_EXEC --node-ip=$DUMMY_IP_ADDR --node-name=$DUMMY_NODE_NAME"
+elif $USE_STATIC_IP; then
   echo "Enter the cluster IP to bind to [default: 127.0.0.1, or your real network IP]:"
   read -r CLUSTER_IP
   if [ -z "$CLUSTER_IP" ]; then
