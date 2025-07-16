@@ -15,7 +15,7 @@ echo "Update OS (recommended before install)"
 echo "You may want to run: sudo apt update && sudo apt upgrade -y"
 echo
 # --- Disclaimer about static IP/hostname ---
-echo "[DISCLAIMER] For best results, set a static IP and hostname for your VM using 'nmtui' or 'nmcli' before running this script."
+echo "[DISCLAIMER] For best results, set a static IP and hostname for your VM using 'nmtui' before running this script."
 echo "You can run 'sudo nmtui' to configure your network and hostname."
 echo
 
@@ -50,8 +50,16 @@ HOME_DIR="$(eval echo ~$USER_NAME)"
 echo "[INFO] Updating package cache..."
 eval "$PKG_UPDATE"
 
-for dep in curl sudo tar openssl iptables iproute; do
-  if ! command -v $dep >/dev/null; then
+if [ "$OS_TYPE" = "ubuntu" ]; then
+  DEPS="curl sudo tar openssl iptables iproute2"
+else
+  DEPS="curl sudo tar openssl iptables iproute"
+fi
+
+for dep in $DEPS; do
+  dep_check=$dep
+  [ "$dep" = "iproute2" ] && dep_check="ip"
+  if ! command -v $dep_check >/dev/null; then
     echo "[INFO] Installing missing dependency: $dep"
     eval "$PKG_INSTALL $dep"
   fi
@@ -132,86 +140,29 @@ if [[ $SPECIFY_STATIC_IP =~ ^[Yy]$ ]]; then
   USE_STATIC_IP=true
 fi
 
+INSTALL_K3S_EXEC="server"
 if $USE_STATIC_IP; then
   echo "Enter the cluster IP to bind to [default: 127.0.0.1, or your real network IP]:"
   read -r CLUSTER_IP
   if [ -z "$CLUSTER_IP" ]; then
     CLUSTER_IP="127.0.0.1"
   fi
+  INSTALL_K3S_EXEC="$INSTALL_K3S_EXEC --tls-san $CLUSTER_IP --bind-address=$CLUSTER_IP"
 fi
 
 # --- Prompt for Traefik ---
 echo "[INFO] By default, k3s installs Traefik ingress."
 echo "Do you want to install Traefik? [y/N]"
 read -r INSTALL_TRAEFIK
-echo "[INFO] Installing k3s as a single-node cluster. No agents will be joined."
-
-# --- Build installer args based on static IP choice ---
-K3S_EXTRA_ARGS=""
-# Only declare K3SUP_IP_ARG and K3S_NODE_IP_ARG if static IP is used
-if $USE_STATIC_IP; then
-  if [[ $INSTALL_TRAEFIK =~ ^[Yy]$ ]]; then
-    K3S_EXTRA_ARGS="--k3s-extra-args=--bind-address=$CLUSTER_IP"
-  else
-    K3S_EXTRA_ARGS="--k3s-extra-args=--disable=traefik --bind-address=$CLUSTER_IP"
-  fi
-  K3SUP_IP_ARG="--ip $CLUSTER_IP"
-  K3S_NODE_IP_ARG="export K3S_NODE_IP=\"$CLUSTER_IP\""
-else
-  if [[ ! $INSTALL_TRAEFIK =~ ^[Yy]$ ]]; then
-    K3S_EXTRA_ARGS="--k3s-extra-args=--disable=traefik"
-  else
-    K3S_EXTRA_ARGS=""
-  fi
-  # Do not declare K3SUP_IP_ARG or K3S_NODE_IP_ARG at all
+if [[ ! $INSTALL_TRAEFIK =~ ^[Yy]$ ]]; then
+  INSTALL_K3S_EXEC="$INSTALL_K3S_EXEC --disable=traefik"
 fi
 
-# --- Check dependencies ---
-echo "======== Check Environment Variables =================="
-env
-for dep in curl sudo; do
-  if ! command -v $dep >/dev/null; then
-    echo "[ERROR] Required dependency '$dep' not found. Please install it and rerun."; exit 1
-  fi
-done
-
-# --- Download k3sup if needed ---
 echo "======== Installing k3s =================="
-K3SUP_BIN="$HOME_DIR/.k3sup/bin/k3sup"
-if ! command -v k3sup >/dev/null; then
-  echo "[INFO] Downloading k3sup..."
-  curl -sLS --insecure https://get.k3sup.dev | sh
-fi
-
-# Find k3sup location
-if command -v k3sup >/dev/null; then
-  K3SUP_BIN="$(command -v k3sup)"
-else
-  echo "[ERROR] k3sup installation failed."
-  exit 1
-fi
-
-echo "[INFO] Using k3sup at $K3SUP_BIN"
-
-# --- Install k3s with k3sup ---
-echo "======== Running install command =================="
+export INSTALL_K3S_EXEC
 export K3S_KUBECONFIG_MODE="644"
-if $USE_STATIC_IP; then
-  export K3S_NODE_IP="$CLUSTER_IP"
-  echo "[INFO] Installing k3s on localhost ($CLUSTER_IP) as $USER_NAME..."
-  $K3SUP_BIN install --local $K3SUP_IP_ARG --user "$USER_NAME" $K3S_EXTRA_ARGS
-else
-  echo "[INFO] Installing k3s on localhost as $USER_NAME..."
-  $K3SUP_BIN install --local --user "$USER_NAME" $K3S_EXTRA_ARGS
-fi
-
-# --- Check for k3s.yaml ---
-if [ ! -f /etc/rancher/k3s/k3s.yaml ]; then
-  echo "[ERROR] k3s did not install correctly. /etc/rancher/k3s/k3s.yaml not found."
-  exit 1
-fi
-
-echo "======== Installation of k3s finished =================="
+echo "[INFO] Running: curl -sfL https://get.k3s.io | sh -"
+curl -sfL https://get.k3s.io | sh -
 
 # --- Set up kubeconfig ---
 echo "======== Setting default kubeconfig =================="
@@ -221,25 +172,15 @@ sudo cp /etc/rancher/k3s/k3s.yaml "$KUBECONFIG_PATH"
 sudo chown "$USER_NAME":"$USER_NAME" "$KUBECONFIG_PATH"
 sudo chmod 600 "$KUBECONFIG_PATH"
 
-# --- Set environment variable ---
 if ! grep -q 'export KUBECONFIG=' "$HOME_DIR/.bashrc"; then
-  echo "export KUBECONFIG=\"$HOME_DIR/.kube/config\"" >> "$HOME_DIR/.bashrc"
+  echo "export KUBECONFIG=\"$KUBECONFIG_PATH\"" >> "$HOME_DIR/.bashrc"
 fi
-export KUBECONFIG="$HOME_DIR/.kube/config"
+export KUBECONFIG="$KUBECONFIG_PATH"
 
-echo "... listing updated environment variables: "
-sudo cat /etc/environment || true
-sudo cat "$HOME_DIR/.bashrc" || true
+kubectl config use-context default || true
+kubectl get node -o wide || true
 
-kubectl config use-context default
-kubectl get node -o wide
-
-echo "======== Restarting Cluster =================="
-/usr/local/bin/k3s-killall.sh || true
-sudo systemctl start k3s || true
-sudo chmod +rwx /etc/rancher/k3s/k3s.yaml || true
-
-# --- Test cluster ---
+# --- Wait for node to be ready ---
 echo "======== Waiting for the node to boot ...  =================="
 echo "[INFO] Waiting for node to register with the cluster..."
 for i in {1..60}; do
@@ -261,21 +202,59 @@ kubectl get node -o wide
 kubectl get pods -A
 
 echo "======== K3s version =================="
-echo "[INFO] k3s version:"
 k3s --version
-$K3SUP_BIN version
+
+echo "======== Cluster Successfully installed =================="
+echo "[SUCCESS] k3s cluster installed."
+echo "[INFO] KUBECONFIG is set to $KUBECONFIG_PATH."
+echo "[INFO] You may need to restart your shell for KUBECONFIG to take effect."
+echo "[INFO] To access the cluster: kubectl get nodes"
+echo "======== Cluster Successfully installed =================="
+echo "======== For WSL, a reboot is needed for kubectl and variables to take effect =================="
+echo "To access WSL under Windows use: wsl hostname -I " 
+
+echo "======== Optional Tools Installation =================="
+# --- Prompt for k9s ---
+echo "Do you want to install k9s (terminal UI for Kubernetes)? [y/N]"
+read -r INSTALL_K9S
+if [[ $INSTALL_K9S =~ ^[Yy]$ ]]; then
+  if ! command -v curl >/dev/null; then
+    echo "[WARN] curl is required for k9s install. Skipping k9s."
+  else
+    echo "[INFO] Installing k9s using webinstall.dev..."
+    curl -sS https://webinstall.dev/k9s | bash
+    if [ -f "$HOME/.config/envman/load.sh" ]; then
+      source "$HOME/.config/envman/load.sh"
+      if ! grep -q 'source ~/.config/envman/load.sh' "$HOME/.bashrc"; then
+        echo 'source ~/.config/envman/load.sh' >> "$HOME/.bashrc"
+      fi
+      echo "[INFO] k9s is now available in this session and future terminals."
+    fi
+    echo "[INFO] k9s installed. Run 'k9s' to start the UI."
+  fi
+else
+  echo "[INFO] Skipping k9s installation."
+fi
+
+# --- Prompt for helm ---
+echo "Do you want to install helm (Kubernetes package manager)? [y/N]"
+read -r INSTALL_HELM
+if [[ $INSTALL_HELM =~ ^[Yy]$ ]]; then
+  if ! command -v curl >/dev/null; then
+    echo "[WARN] curl is required for helm install. Skipping helm."
+  else
+    echo "[INFO] Installing helm..."
+    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    echo "[INFO] helm installed. Run 'helm version' to verify."
+  fi
+else
+  echo "[INFO] Skipping helm installation."
+fi 
 
 # --- Print version and summary ---
 echo "======== Installed Tool Versions =================="
 if command -v k3s >/dev/null; then
   echo -n "k3s: "; k3s --version | head -n1
-fi
-if command -v k3sup >/dev/null; then
-  K3SUP_VER=$(k3sup version --short 2>/dev/null | head -n1)
-  if [ -z "$K3SUP_VER" ]; then
-    K3SUP_VER=$(k3sup version 2>/dev/null | grep -m1 Version: | awk '{print $2}')
-  fi
-  echo "k3sup: $K3SUP_VER"
 fi
 if command -v kubectl >/dev/null; then
   KUBECTL_VER=$(kubectl version --client=true 2>/dev/null | grep -E 'GitVersion|Client Version' | head -n1 | awk -F: '{print $2}' | xargs)
@@ -305,49 +284,3 @@ if command -v tar >/dev/null; then
   echo -n "tar: "; tar --version | head -n1
 fi
 
-echo "======== Cluster Successfully installed =================="
-echo "[SUCCESS] k3s cluster installed and bound to 127.0.0.1."
-echo "[INFO] KUBECONFIG is set to $KUBECONFIG_PATH."
-echo "[INFO] You may need to restart your shell for KUBECONFIG to take effect."
-echo "[INFO] To access the cluster: kubectl get nodes"
-echo "======== Cluster Successfully installed =================="
-echo "======== For WSL, a reboot is needed for kubectl and variables to take effect =================="
-echo "To access WSL under Windows use: wsl hostname -I " 
-
-echo "======== Optional Tools Installation =================="
-# --- Prompt for k9s ---
-echo "Do you want to install k9s (terminal UI for Kubernetes)? [y/N]"
-read -r INSTALL_K9S
-if [[ $INSTALL_K9S =~ ^[Yy]$ ]]; then
-  if ! command -v curl >/dev/null; then
-    echo "[WARN] curl is required for k9s install. Skipping k9s."
-  else
-    echo "[INFO] Installing k9s using webinstall.dev..."
-    curl -sS https://webinstall.dev/k9s | bash
-    if [ -f "$HOME/.config/envman/PATH.env" ]; then
-      source "$HOME/.config/envman/PATH.env"
-      if ! grep -q 'source ~/.config/envman/PATH.env' "$HOME/.bashrc"; then
-        echo 'source ~/.config/envman/PATH.env' >> "$HOME/.bashrc"
-      fi
-      echo "[INFO] k9s is now available in this session and future terminals."
-    fi
-    echo "[INFO] k9s installed. Run 'k9s' to start the UI."
-  fi
-else
-  echo "[INFO] Skipping k9s installation."
-fi
-
-# --- Prompt for helm ---
-echo "Do you want to install helm (Kubernetes package manager)? [y/N]"
-read -r INSTALL_HELM
-if [[ $INSTALL_HELM =~ ^[Yy]$ ]]; then
-  if ! command -v curl >/dev/null; then
-    echo "[WARN] curl is required for helm install. Skipping helm."
-  else
-    echo "[INFO] Installing helm..."
-    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-    echo "[INFO] helm installed. Run 'helm version' to verify."
-  fi
-else
-  echo "[INFO] Skipping helm installation."
-fi 
