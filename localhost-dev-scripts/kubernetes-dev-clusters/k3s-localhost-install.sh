@@ -1,13 +1,36 @@
 #!/bin/bash
-# run with bash k3s-localhost-install.sh
-
-set -euo pipefail
+# run with: bash k3s-localhost-install.sh
 
 # !!!! Need to be run as a normal user, not root, unless you know what you're doing !!!!
 ################################################################################################
 # Created by Fedir Indutnyi                                                                    #
 # Note: This script installs and configures k3s.                                               #
+# Requires bash. On Alpine, run: apk add bash                                                   #
+# Usage: bash k3s-localhost-install.sh                                                         #
 ################################################################################################
+
+
+if [ -z "$BASH_VERSION" ]; then
+  # Try to install bash if not present
+  if ! command -v bash >/dev/null; then
+    echo "[INFO] bash not found. Attempting to install bash..."
+    if grep -qi 'alpine' /etc/os-release; then
+      sudo apk add --no-cache bash
+    elif grep -qi 'ubuntu' /etc/os-release; then
+      sudo apt update && sudo apt install -y bash
+    elif grep -qi 'rhel' /etc/os-release || grep -qi 'centos' /etc/os-release || grep -qi 'almalinux' /etc/os-release; then
+      sudo dnf install -y bash || sudo yum install -y bash
+    else
+      echo "[ERROR] Unknown OS. Please install bash manually and rerun the script."
+      exit 1
+    fi
+  fi
+  echo "[INFO] Re-running script with bash..."
+  exec bash "$0" "$@"
+fi
+
+set -euo pipefail
+
 
 echo "!!! Important - make sure ending of this file is LF !!!"
 
@@ -34,8 +57,14 @@ elif grep -qi 'almalinux' /etc/os-release || grep -qi 'centos' /etc/os-release |
   PKG_INSTALL="sudo dnf install -y || sudo yum install -y"
   FIREWALL_DISABLE="sudo systemctl stop firewalld"
   FIREWALL_PERM_DISABLE="sudo systemctl disable firewalld"
+elif grep -qi 'alpine' /etc/os-release; then
+  OS_TYPE="alpine"
+  PKG_UPDATE="sudo apk update"
+  PKG_INSTALL="sudo apk add --no-cache"
+  FIREWALL_DISABLE="echo '[INFO] Alpine does not use ufw/firewalld by default.'"
+  FIREWALL_PERM_DISABLE="echo '[INFO] Alpine does not use ufw/firewalld by default.'"
 else
-  echo "[WARN] This script is designed for Ubuntu and AlmaLinux/RHEL. Continue? (y/N)"
+  echo "[WARN] This script is designed for Ubuntu, AlmaLinux/RHEL, and Alpine. Continue? (y/N)"
   read -r ans
   [[ $ans =~ ^[Yy]$ ]] || exit 1
   OS_TYPE="unknown"
@@ -52,8 +81,12 @@ eval "$PKG_UPDATE"
 
 if [ "$OS_TYPE" = "ubuntu" ]; then
   DEPS="curl sudo tar openssl iptables iproute2"
-else
+elif [ "$OS_TYPE" = "rhel" ]; then
   DEPS="curl sudo tar openssl iptables iproute"
+elif [ "$OS_TYPE" = "alpine" ]; then
+  DEPS="curl sudo bash tar openssl iptables iproute2"
+else
+  DEPS="curl sudo tar openssl iptables iproute2"
 fi
 
 for dep in $DEPS; do
@@ -157,15 +190,24 @@ if [[ $CREATE_DUMMY_IF =~ ^[Yy]$ ]]; then
     read -r RECREATE_DUMMY
     if [[ $RECREATE_DUMMY =~ ^[Yy]$ ]]; then
       echo "[INFO] Deleting existing $DUMMY_IF_NAME..."
-      nmcli connection delete "$DUMMY_IF_NAME" || true
+      if command -v nmcli >/dev/null; then
+        nmcli connection delete "$DUMMY_IF_NAME" || true
+      fi
       sudo ip link delete "$DUMMY_IF_NAME" || true
     else
       echo "[INFO] Keeping existing $DUMMY_IF_NAME."
     fi
   fi
   echo "[INFO] Creating $DUMMY_IF_NAME with IP $DUMMY_IP..."
-  nmcli connection add type dummy ifname "$DUMMY_IF_NAME" con-name "$DUMMY_IF_NAME" ipv4.addresses "$DUMMY_IP" ipv4.method manual ipv6.method ignore
-  nmcli connection up "$DUMMY_IF_NAME"
+  if command -v nmcli >/dev/null; then
+    nmcli connection add type dummy ifname "$DUMMY_IF_NAME" con-name "$DUMMY_IF_NAME" ipv4.addresses "$DUMMY_IP" ipv4.method manual ipv6.method ignore
+    nmcli connection up "$DUMMY_IF_NAME"
+  else
+    sudo ip link add "$DUMMY_IF_NAME" type dummy || true
+    sudo ip addr flush dev "$DUMMY_IF_NAME" || true
+    sudo ip addr add "$DUMMY_IP" dev "$DUMMY_IF_NAME"
+    sudo ip link set "$DUMMY_IF_NAME" up
+  fi
   ip addr show "$DUMMY_IF_NAME"
 fi
 
@@ -204,6 +246,20 @@ export INSTALL_K3S_EXEC
 export K3S_KUBECONFIG_MODE="644"
 echo "[INFO] Running: curl -sfL https://get.k3s.io | sh -"
 curl -sfL https://get.k3s.io | sh -
+
+# --- Wait for k3s.yaml to exist ---
+echo "Waiting for /etc/rancher/k3s/k3s.yaml to be created by k3s..."
+for i in {1..30}; do
+  if [ -f /etc/rancher/k3s/k3s.yaml ]; then
+    break
+  fi
+  sleep 2
+done
+
+if [ ! -f /etc/rancher/k3s/k3s.yaml ]; then
+  echo "[ERROR] k3s did not start correctly. /etc/rancher/k3s/k3s.yaml not found after waiting."
+  exit 1
+fi
 
 # --- Set up kubeconfig ---
 echo "======== Setting default kubeconfig =================="
@@ -259,20 +315,17 @@ echo "======== Optional Tools Installation =================="
 echo "Do you want to install k9s (terminal UI for Kubernetes)? [y/N]"
 read -r INSTALL_K9S
 if [[ $INSTALL_K9S =~ ^[Yy]$ ]]; then
-  if ! command -v curl >/dev/null; then
-    echo "[WARN] curl is required for k9s install. Skipping k9s."
-  else
-    echo "[INFO] Installing k9s using webinstall.dev..."
-    curl -sS https://webinstall.dev/k9s | bash
-    if [ -f "$HOME/.config/envman/load.sh" ]; then
-      source "$HOME/.config/envman/load.sh"
-      if ! grep -q 'source ~/.config/envman/load.sh' "$HOME/.bashrc"; then
-        echo 'source ~/.config/envman/load.sh' >> "$HOME/.bashrc"
-      fi
-      echo "[INFO] k9s is now available in this session and future terminals."
+  echo "[INFO] Installing k9s using webinstall.dev..."
+  curl -sS https://webinstall.dev/k9s | bash
+  if [ -f "$HOME/.config/envman/load.sh" ]; then
+    source "$HOME/.config/envman/load.sh"
+    if ! grep -q 'source ~/.config/envman/load.sh' "$HOME/.bashrc"; then
+      echo 'source ~/.config/envman/load.sh' >> "$HOME/.bashrc"
     fi
-    echo "[INFO] k9s installed. Run 'k9s' to start the UI."
+    echo "[INFO] k9s command is now available in this session and future terminals."
   fi
+  export PATH="$HOME/.local/bin:$PATH"
+  echo "[INFO] k9s installed. Run 'k9s' to start the TUI."
 else
   echo "[INFO] Skipping k9s installation."
 fi
