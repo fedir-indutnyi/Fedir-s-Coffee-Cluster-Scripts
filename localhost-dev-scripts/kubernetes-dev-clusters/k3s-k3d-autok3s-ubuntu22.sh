@@ -3,6 +3,8 @@
 # Install k3d
 curl -s https://raw.githubusercontent.com/rancher/k3d/main/install.sh | bash
 
+# autok3s serve --bind-address 0.0.0.0 --bind-port 8080
+
 # Create k3d cluster
 k3d cluster create mycluster
 

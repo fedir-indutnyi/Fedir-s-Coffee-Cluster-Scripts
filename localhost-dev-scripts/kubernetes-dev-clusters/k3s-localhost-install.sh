@@ -241,6 +241,8 @@ if [[ ! $INSTALL_TRAEFIK =~ ^[Yy]$ ]]; then
   INSTALL_K3S_EXEC="$INSTALL_K3S_EXEC --disable=traefik"
 fi
 
+ssh-keygen -t rsa -b 4096 -f /root/.ssh/id_rsa -N ""
+
 echo "======== Installing k3s =================="
 export INSTALL_K3S_EXEC
 export K3S_KUBECONFIG_MODE="644"

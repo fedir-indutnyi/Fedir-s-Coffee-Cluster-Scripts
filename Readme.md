@@ -39,7 +39,62 @@ cp k3s-native-k3sup-ubuntu22.sh /tmp/k3s-native-k3sup-ubuntu22.sh && \
 chmod +x /tmp/k3s-native-k3sup-ubuntu22.sh && \
 /bin/bash -c "/tmp/k3s-native-k3sup-ubuntu22.sh"
 
+to install in lxc:
+# curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --flannel-backend=host-gw" sh -
+
+Step 1 — Clean Install (If Current Broken)
+k3s-uninstall.sh
+rm -rf /var/lib/rancher/k3s
+rm -rf /etc/rancher/k3s
+Step 2 — Install k3s With Traefik + host-gw Networking
+curl -sfL https://get.k3s.io | sh -s - \
+  --node-name control.k8s \
+  --flannel-backend=host-gw 
+
+
+curl -sfL https://get.k3s.io | sh -s - \
+  --node-name homelab.k8s \
+  --flannel-backend=host-gw
+
+Explanation:
+
+Traefik remains enabled (default)
+
+servicelb disabled (you use tunnels/ingress)
+
+host-gw networking (LXC-friendly)
+
+ingress available
+
+
+
+
+# Setup kubectl for non-root user access
+echo 'export KUBECONFIG=~/.kube/config' >> ~/.bashrc
+echo 'source <(kubectl completion bash)' >>~/.bashrc
+echo 'alias k=kubectl' >>~/.bashrc
+echo 'complete -o default -F __start_kubectl k' >>~/.bashrc
+source ~/.bashrc
+mkdir ~/.kube 2> /dev/null
+sudo k3s kubectl config view --raw > "$KUBECONFIG"
+chmod 600 "$KUBECONFIG"
+# Test to make sure non-root kubectl is working
+kubectl get nodes
+
+
 # Install ArgoCD 
-chmod +x argocd-install.sh && sh ./argocd-install.sh
+   helm repo add argo https://argoproj.github.io/argo-helm
+   helm repo update
+   kubectl create namespace argocd
+   helm install argocd argo/argo-cd   --namespace argocd
+
+
+to expose nodeport for argo
+
+   helm upgrade argocd argo/argo-cd \
+  -n argocd \
+  --reuse-values \
+  --set server.service.type=NodePort \
+  --set server.service.nodePort=30080
 
 ``` 
