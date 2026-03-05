@@ -46,15 +46,14 @@ Step 1 — Clean Install (If Current Broken)
 k3s-uninstall.sh
 rm -rf /var/lib/rancher/k3s
 rm -rf /etc/rancher/k3s
+
 Step 2 — Install k3s With Traefik + host-gw Networking
 curl -sfL https://get.k3s.io | sh -s - \
-  --node-name control.k8s \
-  --flannel-backend=host-gw 
+  --node-name splatform-poznan-dev.k8s \
+  --node-ip 10.10.10.6 \
+  --flannel-backend=host-gw \
+  --write-kubeconfig-mode 644
 
-
-curl -sfL https://get.k3s.io | sh -s - \
-  --node-name homelab.k8s \
-  --flannel-backend=host-gw
 
 Explanation:
 
@@ -91,10 +90,11 @@ kubectl get nodes
 
 to expose nodeport for argo
 
-   helm upgrade argocd argo/argo-cd \
+helm upgrade argocd argo/argo-cd \
   -n argocd \
   --reuse-values \
   --set server.service.type=NodePort \
-  --set server.service.nodePort=30080
+  --set server.service.nodePort=30080 \
+  --set configs.params."server\.insecure"=true
 
 ``` 
